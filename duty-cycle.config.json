@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "timezone": "Asia/Shanghai",
+  "reconcileOnStart": true,
+  "cycle": {
+    "enabled": true,
+    "pauseMinutes": 15,
+    "activeMinutes": 45,
+    "anchorAt": 1794581259440
+  },
+  "manualHold": false,
+  "skipPauseUntilMs": 0
+}

@@ -1,0 +1,37 @@
+{
+  "name": "dsh-duty-cycle",
+  "version": "1.6.0",
+  "description": "DSH duty-cycle plugin (custom fork) — duty cycle only: pause 15 min, run 45 min, repeat. Running commands and in-flight requests are never interrupted.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhu168/dsh-save-money.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "client.js"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "node ../scripts/build.js && node ../scripts/make-plugin.js",
+    "prepare": "node ../scripts/build.js && node ../scripts/make-plugin.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  }
+}

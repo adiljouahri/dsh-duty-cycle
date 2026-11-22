@@ -1,0 +1,8 @@
+# dsh-duty-cycle 快速试用 overlay（官方 --patch 方式，见 README「安装-方式一」）
+# 用法（本机路径已填好；换机器时需替换 <REPO_ROOT>）：
+#   dsh web --patch ./cordis.patch.yml
+# 或（从仓库根，源码运行）：
+#   pnpm dsh web --patch ./cordis.patch.yml
+- insert:
+    - id: duty-cycle
+      name: 'E:/work/PauseStart/dsh-duty-cycle/plugin/index.js'

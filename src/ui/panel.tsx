@@ -1,0 +1,255 @@
+/**
+ * dsh-duty-cycle — Client UI (custom fork): duty-cycle status + the 15/45
+ * settings pair.
+ *
+ * Header entry (conversation.session.header.utilities slot): status pill
+ * "Cycle · PAUSED (resumes in 7 min)" / "Cycle · RUNNING (pause in 41 min)",
+ * a click popover (status details + settings form) and a fixed top banner
+ * while paused. The system settings page (settings.section) reuses
+ * SettingsView: master On/Off switch, Pause minutes (15) and Run minutes (45)
+ * inputs, and a Save button.
+ *
+ * React is a Client Builtin GLOBAL in the dynamic form and require('react')
+ * in the official bundle wrapper (scripts/make-plugin.js adds the binding) —
+ * the plugin body uses the global name either way. DSHButton comes from
+ * @deepseek-ai/dsh-client-ui-primitives when available (hand-drawn fallback
+ * otherwise). Theme colors use the DSH --dsw-alias-* CSS tokens.
+ *
+ * Inlined into the client plugin body at build time (scripts/build.js).
+ */
+
+declare const React: any
+declare const window: any
+
+/** Factory: build the cycle UI bound to the client deps. */
+export function createUi(deps: any) {
+  const DSHButton = deps.DSHButton
+
+  // DSH renderer props are selector hooks (useStore / use<Source>), not
+  // frozen snapshots. The client passes `st` as a live hook; call it at render
+  // time so the pill, banner, settings and countdown all update together.
+  const stateOf = (props: any) => {
+    const s = props && props.st
+    return typeof s === 'function' ? s() : s
+  }
+
+  const badgeInfo = (st: any) => {
+    if (!st || st.enabled !== true) return { color: '#8a8f98', text: 'Cycle OFF' }
+    if (st.reason === 'manual-hold') return { color: '#d64545', text: 'Cycle · HOLD' }
+    if (st.state === 'PAUSED') {
+      const m = typeof st.minutesToResume === 'number' ? ' · resumes in ' + st.minutesToResume + ' min' : ''
+      return { color: '#e0a106', text: 'Cycle · PAUSED' + m }
+    }
+    const m = typeof st.minutesToPause === 'number' ? ' · pause in ' + st.minutesToPause + ' min' : ''
+    return { color: '#22a06b', text: 'Cycle · RUNNING' + m }
+  }
+
+  const fmtClock = (iso: any): string => {
+    if (typeof iso !== 'string' || !iso) return '-'
+    try { return new Date(iso).toLocaleTimeString() } catch (e) { return iso }
+  }
+
+  const cardStyle: any = {
+    background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)',
+    border: '1px solid var(--dsw-alias-border-l1)', borderRadius: '10px',
+    boxShadow: '0 6px 24px rgba(0,0,0,0.35)',
+  }
+
+  // ---- Cycle progress bar: one full period (pause segment in amber, run
+  // segment in green), a "now" marker, wall-clock tick labels and the exact
+  // remaining countdown. Hidden while the cycle is off (no st.cycle payload).
+  const CycleBar = (st: any) => {
+    const info = st && st.cycle
+    if (!info || !info.cycleLenMs) return null
+    const fmtHm = (iso: any) => {
+      try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } catch (e) { return '' }
+    }
+    const len = info.cycleLenMs
+    const posPct = Math.min(100, Math.max(0, (info.cyclePosMs / len) * 100))
+    const pausePct = Math.min(100, (info.pauseMs / len) * 100)
+    const remain = st.state === 'PAUSED'
+      ? 'pause ends ' + fmtHm(info.pauseEndUTC) + (typeof st.minutesToResume === 'number' ? ' (in ' + st.minutesToResume + ' min)' : '')
+      : 'next pause ' + fmtHm(info.nextPauseUTC) + (typeof st.minutesToPause === 'number' ? ' (in ' + st.minutesToPause + ' min)' : '')
+    return React.createElement('div', { style: { margin: '8px 0 12px' } },
+      React.createElement('div', { style: { position: 'relative', height: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--dsw-alias-border-l1)' } },
+        React.createElement('div', { style: { position: 'absolute', left: 0, top: 0, bottom: 0, width: pausePct + '%', background: '#e0a106' } }),
+        React.createElement('div', { style: { position: 'absolute', left: pausePct + '%', right: 0, top: 0, bottom: 0, background: '#22a06b' } }),
+        React.createElement('div', { style: { position: 'absolute', left: posPct + '%', right: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.45)' } }),
+        React.createElement('div', { style: { position: 'absolute', left: 'calc(' + posPct + '% - 1px)', top: 0, bottom: 0, width: '2px', background: '#fff', boxShadow: '0 0 6px rgba(255,255,255,0.9)' } })),
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--dsw-alias-label-secondary)', marginTop: '2px' } },
+        React.createElement('span', null, fmtHm(info.cycleStartUTC) + ' pause'),
+        React.createElement('span', null, fmtHm(info.pauseEndUTC) + ' resume'),
+        React.createElement('span', null, fmtHm(info.nextPauseUTC) + ' pause')),
+      React.createElement('div', { style: { fontSize: '12px', marginTop: '4px' } },
+        'Now ' + fmtHm(st.nowUTC) + ' \u2014 ' + (st.reason === 'manual-hold' ? 'MANUALLY HELD, ' : st.state === 'PAUSED' ? 'paused, ' : st.reason === 'skip-pause' ? 'pause skipped, ' : 'running, ') + remain),
+    )
+  }
+
+  // ---- Settings form: master switch + the pause/active minutes pair ----
+  const SettingsView = (props: any) => {
+    const st = stateOf(props)
+    const doConfigure = props.doConfigure
+    const cfg = (st && st.config) || {}
+    const cyc = cfg.cycle || {}
+    const [pauseMin, setPauseMin] = React.useState(String(cyc.pauseMinutes != null ? cyc.pauseMinutes : 15))
+    const [activeMin, setActiveMin] = React.useState(String(cyc.activeMinutes != null ? cyc.activeMinutes : 45))
+    const [msg, setMsg] = React.useState('')
+    const prevCycleKey = React.useRef('')
+    React.useEffect(() => {
+      // Sync only when the host config actually changed — the 30s poll must
+      // not clobber in-progress edits.
+      const key = JSON.stringify([cyc.pauseMinutes, cyc.activeMinutes])
+      if (key !== prevCycleKey.current) {
+        prevCycleKey.current = key
+        if (cyc.pauseMinutes != null) setPauseMin(String(cyc.pauseMinutes))
+        if (cyc.activeMinutes != null) setActiveMin(String(cyc.activeMinutes))
+      }
+    }, [st])
+
+    const row = (label: string, children: any) => React.createElement('div',
+      { style: { margin: '8px 0', display: 'flex', alignItems: 'center', gap: '8px' } },
+      React.createElement('span', { style: { minWidth: '110px', fontSize: '13px' } }, label), children)
+    const input = (value: string, setter: any) => React.createElement('input', {
+      value, type: 'number', min: 1, max: 1440,
+      onChange: (e: any) => setter(e.target.value),
+      style: {
+        width: '72px', padding: '3px 6px', fontSize: '13px',
+        background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)',
+        border: '1px solid var(--dsw-alias-border-l1)', borderRadius: '4px',
+      },
+    })
+    const btn = (text: string, fn: any, disabled?: boolean) => DSHButton
+      ? React.createElement(DSHButton, { variant: 'outline', size: 'sm', onClick: fn, disabled }, text)
+      : React.createElement('button', {
+          onClick: fn,
+          disabled,
+          style: {
+            padding: '4px 12px', fontSize: '13px', cursor: 'pointer', borderRadius: '6px',
+            background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            opacity: disabled ? 0.55 : 1,
+          },
+        }, text)
+
+    const save = async () => {
+      const p = Number.parseInt(pauseMin, 10)
+      const a = Number.parseInt(activeMin, 10)
+      if (!Number.isInteger(p) || p < 1 || p > 1440) { setMsg('Pause minutes must be an integer 1-1440'); return }
+      if (!Number.isInteger(a) || a < 1 || a > 1440) { setMsg('Run minutes must be an integer 1-1440'); return }
+      const res = await doConfigure({ cycle: { pauseMinutes: p, activeMinutes: a } })
+      setMsg(res && res.ok === false
+        ? 'Error: ' + String((res && res.error) || 'configure failed')
+        : 'Saved: pause ' + p + ' min / run ' + a + ' min, repeating')
+    }
+
+    const enabled = cfg.enabled === true
+    const held = st && st.reason === 'manual-hold'
+    const pausedNow = held || (st && st.state === 'PAUSED')
+    const statusLine = !enabled
+      ? 'OFF — duty cycle disabled'
+      : held
+        ? 'HOLD — manually paused (press "Resume now" to continue)'
+        : st.state === 'PAUSED'
+          ? 'PAUSED — new model requests suspended (resumes ' + fmtClock(st.pauseEndsUTC) + '; press "Resume now" to skip it)'
+          : st.reason === 'skip-pause'
+            ? 'RUNNING — current pause skipped; next pause ' + fmtClock(st.nextPauseUTC)
+            : 'RUNNING — next pause ' + fmtClock(st.nextPauseUTC)
+
+    // "Resume now" is one-shot: skip only the pause currently in progress.
+    // The next scheduled pause still runs normally.
+    let skipUntil = NaN
+    if (typeof st.pauseEndsUTC === 'string') skipUntil = Date.parse(st.pauseEndsUTC)
+    else if (st && st.cycle && typeof st.cycle.pauseEndUTC === 'string') skipUntil = Date.parse(st.cycle.pauseEndUTC)
+
+    const resumeNow = async () => {
+      const patch: any = { manualHold: false }
+      if (Number.isFinite(skipUntil) && skipUntil > Date.now()) patch.skipPauseUntilMs = skipUntil
+      const res = await doConfigure(patch)
+      setMsg(res && res.ok === false
+        ? 'Error: ' + String((res && res.error) || 'configure failed')
+        : 'Resumed — new model requests flow again (current pause skipped)')
+    }
+    const pauseNow = async () => {
+      const res = await doConfigure({ manualHold: true })
+      setMsg(res && res.ok === false
+        ? 'Error: ' + String((res && res.error) || 'configure failed')
+        : 'Held — new requests wait; in-flight work and running commands continue')
+    }
+
+    return React.createElement('div', { style: { fontSize: '13px' } },
+      React.createElement('div', { style: { margin: '4px 0 10px', fontWeight: 700 } }, statusLine),
+      CycleBar(st),
+      row('Pause control', React.createElement('span', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        pausedNow
+          ? btn('Resume now', resumeNow)
+          : btn('Pause now', pauseNow, !enabled),
+        pausedNow ? React.createElement('span', { style: { fontSize: '12px', fontWeight: 700, color: held ? '#d64545' : '#b78300' } }, held ? 'HELD' : 'PAUSED') : null)),
+      row('Enabled', React.createElement('input', {
+        type: 'checkbox', checked: enabled,
+        onChange: async (e: any) => {
+          const v = !!e.target.checked
+          // The master switch drives the cycle too: switching on re-anchors
+          // the cycle to NOW (pause starts immediately), switch off = resume.
+          await doConfigure({ enabled: v, cycle: { enabled: v } })
+        },
+      })),
+      row('Pause minutes', input(pauseMin, setPauseMin)),
+      row('Run minutes', input(activeMin, setActiveMin)),
+      React.createElement('div', { style: { margin: '10px 0 4px', display: 'flex', gap: '8px', alignItems: 'center' } },
+        btn('Save', save),
+        msg ? React.createElement('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-secondary)' } }, msg) : null),
+      React.createElement('div', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-secondary)', marginTop: '8px', lineHeight: '1.5' } },
+        'Duty cycle: pause P minutes, run R minutes, repeat forever. While paused, NEW model requests wait until the run phase (in-flight requests, running commands and goal state are never interrupted).'),
+      React.createElement('div', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-secondary)', marginTop: '6px' } },
+        'config: ' + String(cfg.timezone || '') + ' · anchor ' + (cyc.anchorAt ? new Date(cyc.anchorAt).toLocaleString() : 'midnight')),
+    )
+  }
+
+  // ---- Header entry: status pill + popover + paused banner ----
+  const HeaderEntry = (props: any) => {
+    const st = stateOf(props)
+    const actions = props.actions
+    const [open, setOpen] = React.useState(false)
+    const b = badgeInfo(st)
+    const pill = React.createElement('span', {
+      onClick: () => setOpen(!open),
+      style: {
+        color: b.color, fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap',
+        padding: '4px 8px', cursor: 'pointer', borderRadius: '6px',
+        border: '1px solid ' + b.color, marginRight: '8px',
+        pointerEvents: 'auto',
+      },
+      title: 'Duty Cycle — click for status & settings',
+    }, b.text)
+    const pop = open
+      ? React.createElement('div', {
+          style: {
+            position: 'fixed', right: '16px', top: '56px', width: '400px',
+            zIndex: 10000, padding: '8px 12px 12px', pointerEvents: 'auto',
+            ...cardStyle,
+          },
+        },
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0 6px' } },
+          React.createElement('strong', { style: { fontSize: '14px' } }, 'Duty Cycle'),
+          React.createElement('span', { onClick: () => setOpen(false), style: { cursor: 'pointer', padding: '0 6px' } }, '✕')),
+        React.createElement(SettingsView, { st: props.st, ...actions }))
+      : null
+    const banner = (st && st.enabled === true && st.state === 'PAUSED')
+      ? React.createElement('div', {
+          style: {
+            position: 'fixed', top: '48px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 10001, padding: '6px 14px', fontSize: '13px', fontWeight: 600,
+            color: '#7a5c00', background: '#fef3c7', border: '1px solid #e0a106',
+            borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+            pointerEvents: 'auto', whiteSpace: 'nowrap',
+          },
+        }, (st.reason === 'manual-hold'
+          ? 'Duty Cycle HELD manually — new model requests waiting (press "Resume now" in the Cycle pill)'
+          : 'Duty Cycle paused — new model requests suspended; press "Resume now" to skip this pause'
+            + (typeof st.minutesToResume === 'number' ? ' — resumes in ' + st.minutesToResume + ' min' : '')))
+      : null
+    return React.createElement('span', null, pill, pop, banner)
+  }
+
+  return { SettingsView, HeaderEntry }
+}
