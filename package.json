@@ -5,13 +5,13 @@
   "description": "DSH duty-cycle plugin (custom fork) — duty cycle only: pause 15 min, run 45 min, repeat. Running commands and in-flight requests are never interrupted.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zhu168/dsh-save-money.git"
+    "url": "https://github.com/adiljouahri/dsh-duty-cycle.git"
   },
   "scripts": {
     "build": "node scripts/build.js",
     "typecheck": "node scripts/typecheck.js",
     "pack": "cd plugin && npm pack",
-    "test": "npm run prepare && node --test tests/cycle.test.js",
+    "test": "npm run prepare && node tests/cycle.test.js && node tests/official.test.js",
     "prepare": "node scripts/build.js && node scripts/make-plugin.js"
   },
   "devDependencies": {

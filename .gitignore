@@ -1,17 +1,13 @@
 # Runtime config persisted by the plugin (never committed)
-save-money.config.json
-
-# Third-party reference copy of the DSH source (never committed)
-/deepseek-harness-0.1/
+duty-cycle.config.json
+duty-cycle-config-path.json
 
 # Build output
 node_modules/
 dist/
 
-# npm pack artifacts (plugin/dsh-save-money-*.tgz)
+# npm pack artifacts
 *.tgz
-
-# Temporary README copied into plugin/ only during npm publish (removed after)
 plugin/README.md
 
 # Logs, editor/OS droppings

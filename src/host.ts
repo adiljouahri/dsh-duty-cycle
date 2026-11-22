@@ -49,6 +49,12 @@ interface CtxLike {
 // type-checked; the real implementations are unit-tested in the modules.
 declare function createConfig(deps: any): any
 declare function computeRawState(now: Date, input: any): RawState
+// The three core.ts helpers used by status()/the state machine.
+declare function cycleBaseMs(cycle: any, tz: string, now: Date): number
+declare function cycleElapsedMinutes(cycle: any, tz: string, now: Date): number
+declare function cyclePhaseInfo(
+  cycle: any, baseMs: number, elapsed: number,
+): { paused: boolean; pauseStartMs: number; pauseEndMs: number; nextPauseStartMs: number } | null
 // Host sub-modules (inlined at build time; factories share the state object
 // `S` and receive the live config via getCfg).
 declare function createGoalManager(ctx: any, S: any, getCfg: () => any): {

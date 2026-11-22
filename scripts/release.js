@@ -7,8 +7,7 @@
  *   - in-app version  : root package.json → build injects it into the client
  *                       footer (plugin/client.js PLUGIN_VERSION)
  *   - npm package     : plugin/package.json
- *   - README install  : every `dsh-duty-cycle-<x.y.z>.tgz` in README.md and
- *                       README.zh.md (both languages)
+ *   - README install  : every `dsh-duty-cycle-<x.y.z>.tgz` in README.md
  *   - test assertion  : tests/official.test.js
  *   - git tag         : v<version> (created + pushed)
  *   - npm publish     : ./plugin
@@ -17,12 +16,11 @@
  *   1. sanity: working tree must be clean; the --version argument is required
  *   2. bump: package.json + plugin/package.json + the version assertion in
  *      tests/official.test.js
- *   3. README: rewrite every dsh-duty-cycle-*.tgz to the new version (both
- *      README.md and README.zh.md)
+ *   3. README: rewrite every dsh-duty-cycle-*.tgz to the new version
  *   4. build + run the full test suite
  *   5. git commit (message includes the version), tag v<version>
- *   6. git push main --tags to every configured release remote (origin =
- *      GitHub and gitcode; unconfigured remotes are skipped)
+ *   6. git push main --tags to the configured release remote (origin =
+ *      GitHub; an unconfigured remote is skipped)
  *   7. npm publish ./plugin
  *
  * README handling: npm only packs files INSIDE plugin/, so the publish step
@@ -36,8 +34,8 @@
  * (plugin/package.json files[] whitelist controls what is packed).
  *
  * Usage:
- *   node scripts/release.js --version 1.4.3 --dry-run          # rehearsal only
- *   node scripts/release.js --version 1.4.3 --proxy http://host:port   # full run via proxy
+ *   node scripts/release.js --version 1.6.1 --dry-run          # rehearsal only
+ *   node scripts/release.js --version 1.6.1 --proxy http://host:port   # full run via proxy
  *
  * Options:
  *   --version <x.y.z>  target version (required, semver x.y.z)
@@ -130,23 +128,22 @@ if (!dryRun) bump()
 console.log('--- [3/7] README version sync ---')
 const updateReadmeVersions = () => {
   const tgzRe = /dsh-duty-cycle-\d+\.\d+\.\d+\.tgz/g
-  for (const f of ['README.md', 'README.zh.md']) {
-    const p = join(root, f)
-    const text = readFileSync(p, 'utf8')
-    const next = text.replace(tgzRe, 'dsh-duty-cycle-' + version + '.tgz')
-    if (next !== text) {
-      writeFileSync(p, next, 'utf8')
-      console.log('  ' + f + ': dsh-duty-cycle-*.tgz -> dsh-duty-cycle-' + version + '.tgz')
-    } else {
-      console.log('  ' + f + ': no tgz references to update')
-    }
+  const f = 'README.md'
+  const p = join(root, f)
+  const text = readFileSync(p, 'utf8')
+  const next = text.replace(tgzRe, 'dsh-duty-cycle-' + version + '.tgz')
+  if (next !== text) {
+    writeFileSync(p, next, 'utf8')
+    console.log('  ' + f + ': dsh-duty-cycle-*.tgz -> dsh-duty-cycle-' + version + '.tgz')
+  } else {
+    console.log('  ' + f + ': no tgz references to update')
   }
 }
 if (!dryRun) updateReadmeVersions()
 
 // 4. Build + tests.
 console.log('--- [4/7] build + tests ---')
-if (!skipTests) run('npm run prepare && node --test tests/cycle.test.js', { cwd: root })
+if (!skipTests) run('npm run prepare && node tests/cycle.test.js && node tests/official.test.js', { cwd: root })
 
 // 5. Commit + tag.
 console.log('--- [5/7] git commit + tag v' + version + ' ---')
@@ -155,9 +152,9 @@ run('git add -A', { cwd: root })
 run('git commit -m ' + JSON.stringify(commitMsg), { cwd: root })
 run('git tag v' + version, { cwd: root })
 
-// 6. Push (via proxy when given) to every configured release remote —
-//    origin (GitHub) and gitcode. A remote that is not configured on this
-//    machine is skipped with a notice, so the same script works anywhere.
+// 6. Push (via proxy when given) to the configured release remote —
+//    origin (GitHub). A remote that is not configured on this machine is
+//    skipped with a notice, so the same script works anywhere.
 console.log('--- [6/7] git push ---')
 if (noPush) {
   console.log('  --no-push: stopping after the local commit + tag')
@@ -165,7 +162,7 @@ if (noPush) {
   const proxyArg = proxy ? ' -c http.proxy=' + proxy : ''
   const configured = execSync('git remote', { encoding: 'utf8', cwd: root })
     .split('\n').map((s) => s.trim()).filter((s) => s.length > 0)
-  const RELEASE_REMOTES = ['origin', 'gitcode']
+  const RELEASE_REMOTES = ['origin']
   for (const r of RELEASE_REMOTES) {
     if (configured.includes(r)) {
       run('git' + proxyArg + ' push ' + r + ' main --tags', { cwd: root })

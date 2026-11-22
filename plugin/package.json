@@ -4,7 +4,7 @@
   "description": "DSH duty-cycle plugin (custom fork) — duty cycle only: pause 15 min, run 45 min, repeat. Running commands and in-flight requests are never interrupted.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zhu168/dsh-save-money.git"
+    "url": "https://github.com/adiljouahri/dsh-duty-cycle.git"
   },
   "publishConfig": {
     "access": "public"

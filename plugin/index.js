@@ -4,7 +4,7 @@
  *
  * Deployment form: DeepSeek Harness official bundle / --patch mount (see
  * README "Install"). Behaviour is identical to the dynamic-plugin form:
- * time-window scheduling + goal freeze/resume + PauseRecord + llm/stream
+ * duty-cycle scheduling + goal freeze/resume + PauseRecord + llm/stream
  * request-level gate (event-driven suspension) + dynamic tools + HTTP
  * endpoints (/duty-cycle/*) for the bundled Client half + config persistence.
  */

@@ -1,13 +1,10 @@
 # dsh-duty-cycle
 
-> **⚡ Custom fork (v1.6.0) — duty-cycle only.** The upstream `dsh-save-money`
-> features (time windows, weekday filters, balance tracking, i18n, model-tier
-> exemptions) are removed. This fork keeps one function: a repeating duty cycle
-> — **pause 15 min → run 45 min → repeat**, with both values editable from the UI.
+A DSH plugin that implements one repeating duty cycle: **pause 15 min → run 45 min → repeat**, with both values editable from the UI.
 
-While paused, **new model requests are suspended**. In-flight requests, running
-tool commands, and the session UI are **not interrupted**. Goals freeze only at
-turn boundaries; startup reconciliation can restore paused goals.
+> **Custom fork (v1.6.0) — duty-cycle only.** The upstream `dsh-save-money` features (clock pause-windows, weekday filters, balance tracking/display, i18n, model-tier exemptions) are intentionally removed. This fork keeps one function: a repeating duty cycle.
+
+While paused, **new model requests are suspended**. In-flight requests, running tool commands, and the session UI are **not interrupted**. Goals freeze only at turn boundaries; startup reconciliation can restore paused goals.
 
 ## UI
 
@@ -47,16 +44,27 @@ Host-side tools: `duty_cycle_status` and `duty_cycle_configure`. HTTP endpoints:
 
 ## Install
 
-The correct artifact is the bundled plugin tarball, not an app:
+The plugin is distributed as a DSH plugin bundle, not an app. This repository ships source and build scripts; the `.tgz` artifact is generated locally.
+
+### Build the bundle from this repo
+
+```sh
+npm install          # installs the TypeScript dev dependency
+npm run prepare      # build + generate plugin/index.js and plugin/client.js
+cd plugin && npm pack
+# produces plugin/dsh-duty-cycle-1.6.0.tgz
+```
+
+Then install:
 
 ```sh
 # remove the old bundle first if it is already installed
 npx.cmd @deepseek-ai/dsh plugin --profile web remove dsh-duty-cycle
 
-npx.cmd @deepseek-ai/dsh plugin --profile web add "E:/work/PauseStart/dsh-duty-cycle/plugin/dsh-duty-cycle-1.6.0.tgz"
+npx.cmd @deepseek-ai/dsh plugin --profile web add "<REPO_ROOT>/plugin/dsh-duty-cycle-1.6.0.tgz"
 ```
 
-On another machine, copy that `.tgz` there and use the same `plugin --profile web add` command. If `npx.ps1` is blocked on Windows, use `npx.cmd` as shown; from a source checkout use `pnpm dsh plugin ...`.
+Replace `<REPO_ROOT>` with the absolute path of your checkout. On another machine, copy the generated `.tgz` there and use the same `plugin --profile web add` command. If `npx.ps1` is blocked on Windows, use `npx.cmd`; from a source checkout use `pnpm dsh plugin ...`.
 
 After installing, **fully restart DSH** and **hard-refresh the browser** (Ctrl+Shift+R). The profile install alone does not replace code already loaded by the running session.
 
@@ -66,6 +74,7 @@ Quick overlay:
 
 ```sh
 cd dsh-duty-cycle
+npm install
 npm run prepare
 # edit cordis.patch.yml to use this repository's absolute plugin/index.js path
 npx.cmd @deepseek-ai/dsh web --patch ./cordis.patch.yml
@@ -74,10 +83,10 @@ npx.cmd @deepseek-ai/dsh web --patch ./cordis.patch.yml
 Link install (hot reload):
 
 ```sh
-npx.cmd @deepseek-ai/dsh plugin --profile web add "link:D:/git/github/dsh-duty-cycle/plugin"
+npx.cmd @deepseek-ai/dsh plugin --profile web add "link:<REPO_ROOT>/plugin"
 ```
 
-`link:` and the bundle form are mutually exclusive; remove the bundle before switching to `link:`.
+`link:` and bundle form are mutually exclusive; remove the bundle before switching to `link:`.
 
 ## Verify
 
@@ -86,3 +95,29 @@ curl http://127.0.0.1:3080/duty-cycle/status
 ```
 
 A healthy response includes `gate: "open"` or `"closed"`, the cycle timeline, and the persisted config. If the running page still shows the old UI, restart DSH and hard-refresh the browser.
+
+## Repository layout
+
+- `src/core.ts` — pure duty-cycle scheduling logic; unit-tested
+- `src/state.ts` — pure state machine
+- `src/config.ts` — defaults, validation, persistence
+- `src/host.ts` + `src/host-*.ts` — Host half: goal freeze, request gate, tools, HTTP
+- `src/client.ts` + `src/ui/panel.tsx` — Client half / UI
+- `tests/cycle.test.js`, `tests/official.test.js` — unit tests
+- `scripts/build.js`, `scripts/make-plugin.js`, `scripts/typecheck.js`, `scripts/release.js`
+- `plugin/` — generated official bundle (`index.js`, `client.js`, `package.json`, `cordis.patch.yml`)
+- `dist/` — build output, gitignored
+- `duty-cycle.config.json` — runtime config, gitignored
+
+## Development commands
+
+```sh
+npm install
+npm run prepare      # build + generate plugin bundle
+npm run typecheck
+npm test             # build + run cycle and bundle-consistency tests
+```
+
+## License
+
+MIT — see [`LICENSE`](./LICENSE).

@@ -1,0 +1,6 @@
+url: https://github.com/adiljouahri/dsh-duty-cycle
+name: adiljouahri/dsh-duty-cycle
+category: usage
+description:
+  en: Repeating duty cycle: pause 15 minutes, run 45 minutes, repeat. Pause/run values are editable; running commands and in-flight requests are not interrupted.
+  zh: 重复工作周期：暂停 15 分钟，继续 45 分钟，再重复；暂停/继续值可在界面修改；运行命令和已发布请求不会被中断。
