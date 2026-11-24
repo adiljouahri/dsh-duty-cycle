@@ -27,7 +27,7 @@ The plugin persists settings to `duty-cycle.config.json` in the resolved workspa
 ```json
 {
   "enabled": true,
-  "timezone": "Asia/Shanghai",
+  "timezone": "UTC",
   "reconcileOnStart": true,
   "cycle": {
     "enabled": true,
