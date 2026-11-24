@@ -1,6 +1,6 @@
 # dsh-duty-cycle
 
-A DSH plugin that implements one repeating duty cycle: **pause 15 min → run 45 min → repeat**, with both values editable from the UI.
+A TypeScript & React plugin for DeepSeek DSH (@deepseek-ai/dsh) AI agent sessions that enforces a configurable repeating duty cycle (pause 15 min → run 45 min → repeat), cleanly freezing goals at turn boundaries.
 
 > **Custom fork (v1.6.0) — duty-cycle only.** The upstream `dsh-save-money` features (clock pause-windows, weekday filters, balance tracking/display, i18n, model-tier exemptions) are intentionally removed. This fork keeps one function: a repeating duty cycle.
 
